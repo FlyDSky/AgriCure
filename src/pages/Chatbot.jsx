@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, User, Bot } from "lucide-react";
+import { Send, User, Bot, Mic, MicOff } from "lucide-react";
 
-// Error Boundary to catch runtime errors
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -27,7 +26,38 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState(null);
+  const [listening, setListening] = useState(false);
   const messageEndRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = "en-US";
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+      };
+
+      recognitionRef.current.onend = () => {
+        setListening(false);
+      };
+    }
+  }, []);
+
+  const handleVoiceToggle = () => {
+    if (listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    } else {
+      recognitionRef.current.start();
+      setListening(true);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!query.trim() && !image) return;
@@ -84,33 +114,21 @@ export default function Chatbot() {
 
   return (
     <ErrorBoundary>
-      <div className="flex flex-col items-center bg-gray-50 min-h-screen pt-24 px-4">
-        {/* Title */}
-        <h1 className="text-4xl font-semibold text-green-600 mb-6 text-center">
+      <div className="flex flex-col items-center bg-gray-50 min-h-screen p-4 sm:p-6">
+        <h1 className="text-3xl sm:text-4xl font-semibold text-green-600 mb-6 text-center">
           💬 Smart Farming Assistant
         </h1>
 
-        {/* Info Section */}
         <div className="max-w-3xl bg-white shadow rounded-xl p-6 text-gray-700 text-center mb-6">
           <p className="text-lg">
             Welcome to Agricure Chatbot! Ask farming questions or upload crop images to receive expert AI guidance instantly.
           </p>
         </div>
 
-        {/* Chat Container */}
-        <div
-          className="w-full max-w-2xl bg-white rounded-3xl shadow-lg border border-gray-200 flex flex-col"
-          style={{ height: "calc(100vh - 300px)" }}
-        >
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4" role="log" aria-live="polite">
+        <div className="w-full max-w-2xl bg-white rounded-3xl shadow-lg border border-gray-200 flex flex-col" style={{ height: "calc(100vh - 250px)" }}>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" role="log" aria-live="polite">
             {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex items-start gap-3 ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+              <div key={idx} className={`flex items-start gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "bot" ? (
                   <div className="bg-green-600 text-white p-2 rounded-full">
                     <Bot size={18} />
@@ -120,20 +138,10 @@ export default function Chatbot() {
                     <User size={18} />
                   </div>
                 )}
-                <div
-                  className={`max-w-[75%] px-5 py-3 rounded-2xl text-base shadow-md whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-green-100 text-green-900"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
+                <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-base shadow-md whitespace-pre-wrap ${msg.role === "user" ? "bg-green-100 text-green-900" : "bg-gray-100 text-gray-800"}`}>
                   {msg.text}
                   {msg.image && msg.image instanceof File && (
-                    <img
-                      src={URL.createObjectURL(msg.image)}
-                      alt="Uploaded"
-                      className="mt-3 max-w-full rounded-lg border"
-                    />
+                    <img src={URL.createObjectURL(msg.image)} alt="Uploaded" className="mt-3 max-w-full rounded-lg border" />
                   )}
                 </div>
               </div>
@@ -141,23 +149,28 @@ export default function Chatbot() {
             <div ref={messageEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="p-4 border-t border-gray-200 flex items-center gap-3 bg-gray-50 rounded-b-3xl">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your question here..."
-              aria-label="Chat input"
-              className="flex-1 p-3 rounded-2xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
-            />
+          <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row items-center gap-3 bg-gray-50 rounded-b-3xl">
+            <div className="flex items-center gap-2 w-full">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your question here..."
+                aria-label="Chat input"
+                className="flex-1 p-3 rounded-2xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+              />
 
-            {/* Image upload */}
-            <label
-              htmlFor="imageUpload"
-              className="cursor-pointer p-2 text-green-600 hover:text-green-800 bg-gray-100 rounded-2xl"
-            >
+              <button
+                onClick={handleVoiceToggle}
+                className={`p-3 rounded-full border ${listening ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"}`}
+                aria-label="Toggle voice input"
+              >
+                {listening ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+            </div>
+
+            <label htmlFor="imageUpload" className="cursor-pointer p-3 text-green-600 hover:text-green-800 bg-gray-100 rounded-2xl">
               <i className="bi bi-camera"></i>
             </label>
             <input
@@ -168,9 +181,7 @@ export default function Chatbot() {
               className="hidden"
             />
 
-            {image && (
-              <span className="text-gray-600 truncate max-w-xs">{image.name}</span>
-            )}
+            {image && <span className="text-gray-600 truncate max-w-xs">{image.name}</span>}
 
             <button
               onClick={handleSubmit}
@@ -182,8 +193,6 @@ export default function Chatbot() {
             </button>
           </div>
         </div>
-
-    
       </div>
     </ErrorBoundary>
   );

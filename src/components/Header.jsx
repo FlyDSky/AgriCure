@@ -4,6 +4,15 @@ import { Search, User, Menu, X } from "lucide-react";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+     const navigate = useNavigate();
+
+   const handleLogout = async () => {
+    try {
+      await signOut(auth);        // Firebase sign-out
+      navigate("/login");         // redirect to login
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-white shadow-lg z-50">
